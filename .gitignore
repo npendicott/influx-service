@@ -15,6 +15,7 @@ influx-service
 
 # CSV
 data/smart-meters-archive/*
+data/solar/*
 
 # ENV
 .env
