@@ -1,13 +1,13 @@
-package csvReader
+package csvReader // TODO: maybe change to lclutl?
 
 import (
 	"encoding/csv"
+	"io"
 	"log"
 	"os"
-	"io"
 )
 
-func GetDataTable(path string)  map[string][]string {
+func GetDataTable(path string) map[string][]string {
 	var readings = make(map[string][]string)
 
 	// Open the file, get a reader
@@ -34,7 +34,6 @@ func GetDataTable(path string)  map[string][]string {
 
 	return readings
 }
-
 
 func GetDataArray(path string) [][]string {
 	// Output

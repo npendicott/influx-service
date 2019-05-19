@@ -2,26 +2,21 @@ package main
 
 import (
 	"github.com/npendicott/influx-service/csvReader"
-	"github.com/npendicott/influx-service/schemas/solar/controlReading"
+	control "github.com/npendicott/influx-service/schemas/solar"
 
-	"github.com/influxdata/influxdb1-client/v2"
+	client "github.com/influxdata/influxdb1-client/v2"
 
-	"log"
-	_"strings"
-	_"strconv"
 	"fmt"
-	
+	"log"
+	_ "strconv"
+	_ "strings"
 )
 
 const (
-
-	HH_TIMESTAMP_FORMAT = "2006-01-02 15:04:05.0000000"
+//HH_TIMESTAMP_FORMAT = "2006-01-02 15:04:05.0000000"
 )
 
-
 func main() {
-
-
 
 	// Influx
 	// TODO: new client ugh
@@ -35,22 +30,18 @@ func main() {
 	}
 	defer influxClient.Close()
 
-	
 	// Control
 	controlData := csvReader.GetDataArray("../../data/solar/control.csv")
 
 	// processedReading := controlReading.ProcessCSVEnergyReading(controlData[5])
 	// controlReading.Print(processedReading)
 
-	
 	for i, reading := range controlData {
 		fmt.Println("Time", reading[4])
 		fmt.Println("Reading:", i)
 
-		processedReading := controlReading.ProcessCSVEnergyReading(reading)
-		controlReading.Print(processedReading)
-		// _ = processedReading
-		// _ = i		
+		controlReading := control.ProcessCSVReading(reading)
+		control.Print(controlReading)
 
 		// readingBatch = append(readingBatch, processedReading)
 		// batch++
@@ -65,9 +56,7 @@ func main() {
 
 		fmt.Println()
 	}
-	
-	
-	
+
 	// for blockIndex := 0; blockIndex < 3; blockIndex++ {
 	// 	blockData := csvReader.GetDataArray(londonPathRoot + frequencyLevel + "block_" + strconv.Itoa(blockIndex) +".csv")
 
