@@ -14,7 +14,7 @@ import (
 
 func main() {
 	// // ENVs
-	// err := godotenv.Load("../..")
+	// err := godotenv.Load("../..")  // TODO: ENV in the folder dangus
 	// if err != nil {
 	// 	log.Fatal("Error loading .env file")
 	// }
@@ -34,7 +34,7 @@ func main() {
 
 		controlReading := control.ProcessCSVReading(reading)
 		// controlPoint := control.CreatePoint(controlReading) // Old Create
-		controlPoint, err := influx.Marshall(controlReading)
+		controlPoint, err := influx.Marshall(controlReading, "control")
 		if err != nil {
 			panic(err)
 		}

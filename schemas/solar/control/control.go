@@ -1,20 +1,16 @@
 package control
 
 import (
-	client "github.com/influxdata/influxdb1-client/v2"
-
 	"fmt"
+	"log"
 	"strconv"
 	"strings"
-
-	"log"
 	"time"
 )
 
 // Influx Consts
 const (
-	TableName       = "control_readings" // TODO: Common readings schema on Influx?
-	TimestampFormat = "1/02 (15:4:5)"    // "2006-01-02 15:04:05.0000000"
+	TimestampFormat = "1/02 (15:4:5)" // "2006-01-02 15:04:05.0000000"
 
 	verbose = true
 )
@@ -27,6 +23,17 @@ type Reading struct {
 	Current   float64   `json:"current" influx:"field"`       // Ic = 0.73
 	Power     float64   `json:"power" influx:"field"`         // P = 60.96
 }
+
+// Print all the struct vals to the console.
+func Print(reading Reading) {
+	fmt.Println("Time: " + reading.Timestamp.String())
+	fmt.Println("VoltAL: ", reading.VoltAL)
+	fmt.Println("VoltCE: ", reading.VoltCE)
+	fmt.Println("Current: ", reading.Current)
+	fmt.Println("Power: ", reading.Power)
+}
+
+// CSV
 
 // ProcessCSVReading takes a string array (from the CSV output of the microcontroller) and builds a Reading.
 func ProcessCSVReading(record []string) Reading {
@@ -73,44 +80,4 @@ func stripAndParse(str string, label string) float64 {
 	}
 
 	return float
-}
-
-// Influx
-
-// CreatePoint takes a Reading and generates an InfluxDB Point.
-// TODO: Take the json tags, and a tag/field metadata element, and do a general "serialize" method
-// json syntax is "Marshall"
-
-func CreatePoint(reading Reading) *client.Point {
-	tags := map[string]string{
-		//"mac_id": reading.MacId,
-	}
-
-	fields := map[string]interface{}{
-		"volt_al": reading.VoltAL,
-		"volt_ce": reading.VoltCE,
-		"current": reading.Current,
-		"power":   reading.Power,
-	}
-
-	pt, err := client.NewPoint(
-		TableName,
-		tags,
-		fields,
-		reading.Timestamp,
-	)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	return pt
-}
-
-// Print all the struct vals to the console.
-func Print(reading Reading) {
-	fmt.Println("Time: " + reading.Timestamp.String())
-	fmt.Println("VoltAL: ", reading.VoltAL)
-	fmt.Println("VoltCE: ", reading.VoltCE)
-	fmt.Println("Current: ", reading.Current)
-	fmt.Println("Power: ", reading.Power)
 }
