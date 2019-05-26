@@ -1,33 +1,42 @@
 package main
 
 import (
-	// Client
-	"influx-client-london/data/influx"
-	// Schemas
-	// TODO: Fix this: https://medium.com/rungo/everything-you-need-to-know-about-packages-in-go-b8bac62b74cc
-	"github.com/npendicott/influx-service/schemas/london/dailyReading"
-	_"github.com/npendicott/influx-service/schemas/london/haflhourlyReading"
-	// Net stuff
-	"net/http"
-	"encoding/json"
+	// TODO: Remove
+	"errors"
+
+	"github.com/npendicott/influx-service/influx"
+	_ "github.com/npendicott/influx-service/schemas/london/daily"
+	_ "github.com/npendicott/influx-service/schemas/london/haflhourlyReading"
+
+	client "github.com/influxdata/influxdb1-client/v2" //"github.com/influxdata/influxdb/client/v2"
 	"github.com/joho/godotenv"
+
+	// Net stuff
+	"encoding/json"
+	"net/http"
+
 	// OS stuff
+	"fmt"
 	"log"
 	"os"
-	"fmt"
+	"regexp"
+
 	// TODO: RM
-	_"github.com/influxdata/influxdb1-client/v2"
+	_ "github.com/influxdata/influxdb1-client/v2"
 	//_"github.com/influxdata/influxdb/client/v2"
-	_"strings"
-	_"strconv"	
+	_ "strconv"
+	_ "strings"
 )
 
 const (
 	PORT = ":9090" // TODO: Remove
 )
 
+var validPath = regexp.MustCompile("^/(readings|reading)/([a-zA-Z0-9]+)$")
+var influxClient client.Client
+
 // Utility
-func addCrossSiteOriginHeader(resWrt http.ResponseWriter) http.ResponseWriter{
+func addCrossSiteOriginHeader(resWrt http.ResponseWriter) http.ResponseWriter {
 	resWrt.Header().Set("Access-Control-Allow-Origin", "*")
 	// These all have to be lowercase, this might be bad HTTP
 	// TODO: maybe an "expectedTokens" slice?
@@ -36,82 +45,62 @@ func addCrossSiteOriginHeader(resWrt http.ResponseWriter) http.ResponseWriter{
 	return resWrt
 }
 
-func unpackTime(req *http.Request, key string) (string, []byte) {
-	time, ok := req.URL.Query()[key]
-	if !ok || len(time[0]) < 1 {
-		errString := "Url Param {0} is missing"
+func getSeries(w http.ResponseWriter, r *http.Request) (string, error) {
+	m := validPath.FindStringSubmatch(r.URL.Path)
+	if m == nil {
+		http.NotFound(w, r)
+		return "", errors.New("Invalid Series")
+	}
+	return m[2], nil // The title is the second subexpression.
+}
+
+// So, not usre if this is the best way, but seems better than copying for each.
+// I guess these should just be headers?? I don't think so though
+func getRequiredParam(req *http.Request, key string) (string, []byte) {
+	result, ok := req.URL.Query()[key]
+	if !ok || len(result[0]) < 1 {
+		errString := fmt.Sprintf("One %s param is required.\n", key)
 		errOut := []byte(errString)
-		log.Println(errString, key)
-		
+		log.Println(errString)
+
 		return "", errOut
 	}
 
-	return time[0], nil  // I guess I will leave the array accessor until I need to take it out?
+	return result[0], nil
 }
 
 // Routs
 func root(resWrt http.ResponseWriter, req *http.Request) {
 	out := []byte("Root!")
 	resWrt.Write(out)
-	
+
 }
 
-func readingsHHourly(resWrt http.ResponseWriter, req *http.Request) {
-		// Parse Request 
-		macId := req.Header.Get("mac-id")
-		fmt.Println(macId)
-	
-		startString, out := unpackTime(req, "start")
-		if out != nil {
-			resWrt.Write(out)
-			return
-		}
-		//fmt.Println(startString)
-	
-		endString, out := unpackTime(req, "end")
-		if out != nil {
-			resWrt.Write(out)
-			return
-		}
-		
-		// Call Influx
-		resp := influx.QueryDateRange(dailyReading.TABLE_NAME, macId, startString, endString)
+func mac_readings(resWrt http.ResponseWriter, req *http.Request) {
+	title := req.URL.Path[len("/mac_readings/"):] // TODO: Is this really the only way to do this?
 
-		// Write Response
-		resWrt = addCrossSiteOriginHeader(resWrt)
-		out, err := json.MarshalIndent(resp, "", "     ")
-		if err != nil {
-			log.Fatal(err)
-		}
-	
-		resWrt.Write(out)
-		return
-}
+	fmt.Println(req.URL.Path[2:])
+	// Headers
+	macID := req.Header.Get("mac-id")
+	fmt.Println(macID)
 
-// TODO: Err handleing
-func readingsDaily(resWrt http.ResponseWriter, req *http.Request) {
-	// Headers 
-	macId := req.Header.Get("mac-id")
-	fmt.Println(macId)
-
-	// Parse start time
-	startString, errOut := unpackTime(req, "start")
+	// Get date range
+	start, errOut := getRequiredParam(req, "start")
 	if errOut != nil {
 		resWrt.Write(errOut)
 		return
 	}
-	fmt.Println(startString)
+	fmt.Println(start)
 
-	// Parse end time
-	endString, errOut := unpackTime(req, "end")
+	end, errOut := getRequiredParam(req, "end")
 	if errOut != nil {
 		resWrt.Write(errOut)
 		return
 	}
-	fmt.Println(endString)
+	fmt.Println(end)
 
 	// Get response
-	resp := influx.QueryDateRange(dailyReading.TABLE_NAME, macId, startString, endString)
+	resp := influx.QueryDateRangeWithMAC(influxClient, title, macID, start, end)
 
 	// Writing Response Body
 	out, err := json.MarshalIndent(resp, "", "     ")
@@ -121,10 +110,115 @@ func readingsDaily(resWrt http.ResponseWriter, req *http.Request) {
 
 	// Header
 	resWrt = addCrossSiteOriginHeader(resWrt)
-	
+
 	resWrt.Write(out)
 	return
 }
+
+func readings(resWrt http.ResponseWriter, req *http.Request) {
+	series := req.URL.Path[len("/readings/"):] // TODO: Is this really the only way to do this?
+
+	// Get date range
+	start, errOut := getRequiredParam(req, "start")
+	if errOut != nil {
+		resWrt.Write(errOut)
+		return
+	}
+	fmt.Println(start)
+
+	end, errOut := getRequiredParam(req, "end")
+	if errOut != nil {
+		resWrt.Write(errOut)
+		return
+	}
+	fmt.Println(end)
+
+	// Get response
+	resp := influx.QueryDateRange(influxClient, series, start, end)
+
+	// Writing Response Body
+	out, err := json.MarshalIndent(resp, "", "     ")
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// Header
+	resWrt = addCrossSiteOriginHeader(resWrt)
+
+	resWrt.Write(out)
+	return
+}
+
+// Specific
+
+// func readingsHHourly(resWrt http.ResponseWriter, req *http.Request) {
+// 	// Parse Request
+// 	macID := req.Header.Get("mac-id")
+// 	fmt.Println(macID)
+
+// 	startString, out := unpackTime(req, "start")
+// 	if out != nil {
+// 		resWrt.Write(out)
+// 		return
+// 	}
+// 	//fmt.Println(startString)
+
+// 	endString, out := unpackTime(req, "end")
+// 	if out != nil {
+// 		resWrt.Write(out)
+// 		return
+// 	}
+
+// 	// Call Influx
+// 	resp := influx.QueryDateRange(dailyReading.TABLE_NAME, macID, startString, endString)
+
+// 	// Write Response
+// 	resWrt = addCrossSiteOriginHeader(resWrt)
+// 	out, err := json.MarshalIndent(resp, "", "     ")
+// 	if err != nil {
+// 		log.Fatal(err)
+// 	}
+
+// 	resWrt.Write(out)
+// 	return
+// }
+
+// func readingsDaily(resWrt http.ResponseWriter, req *http.Request) {
+// 	fmt.Println(req.URL.Path[2:])
+// 	// Headers
+// 	macID := req.Header.Get("mac-id")
+// 	fmt.Println(macID)
+
+// 	// Get date range
+// 	start, errOut := getRequiredParam(req, "start")
+// 	if errOut != nil {
+// 		resWrt.Write(errOut)
+// 		return
+// 	}
+// 	fmt.Println(start)
+
+// 	end, errOut := getRequiredParam(req, "end")
+// 	if errOut != nil {
+// 		resWrt.Write(errOut)
+// 		return
+// 	}
+// 	fmt.Println(end)
+
+// 	// Get response
+// 	resp := influx.QueryDateRange(influxClient, "daily", macID, start, end)
+
+// 	// Writing Response Body
+// 	out, err := json.MarshalIndent(resp, "", "     ")
+// 	if err != nil {
+// 		log.Fatal(err)
+// 	}
+
+// 	// Header
+// 	resWrt = addCrossSiteOriginHeader(resWrt)
+
+// 	resWrt.Write(out)
+// 	return
+// }
 
 // Server
 func main() {
@@ -135,20 +229,23 @@ func main() {
 	}
 
 	// Connect to InfluxDB
-	INFLUX_ADDRESS := os.Getenv("INFLUX_ADDRESS")
-	fmt.Println(INFLUX_ADDRESS)
+	InfluxAddress := os.Getenv("INFLUX_ADDRESS")
+	fmt.Println(InfluxAddress)
 
-	influx.Connect()
+	influxClient = influx.GetConnection()
+	defer influxClient.Close()
 
 	// Routes
 	http.HandleFunc("/", root)
-	http.HandleFunc("/readings/daily", readingsDaily)
-	http.HandleFunc("/readings/hhourly", readingsHHourly)
+	http.HandleFunc("/readings/", readings)
+	http.HandleFunc("/mac_readings/", mac_readings)
+	// http.HandleFunc("/readings/daily", readingsDaily)
+	// http.HandleFunc("/readings/hhourly", readingsHHourly)
 
 	// Start server
 	fmt.Println("Listeninggggggg")
-	serveErr := http.ListenAndServe(PORT, nil) 
-    if serveErr != nil {
-        log.Fatal("ListenAndServe: ", serveErr)
+	serveErr := http.ListenAndServe(PORT, nil)
+	if serveErr != nil {
+		log.Fatal("ListenAndServe: ", serveErr)
 	}
 }

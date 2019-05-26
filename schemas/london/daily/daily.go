@@ -29,22 +29,21 @@ const (
 // Schema
 // LCLid,day,energy_median,energy_mean,energy_max,energy_count,energy_std,energy_sum,energy_min
 type DailyReading struct {
-	Timestamp time.Time `json:"timestamp"`
-	MacId     string    `json:"mac_id"`
-	// TODO: unit in name
-	EnergyMedian float64 `json:"energy_median"`
-	EnergyMean   float64 `json:"energy_mean"`
-	EnergyMax    float64 `json:"energy_max"`
-	EnergyCount  float64 `json:"energy_count"`
-	EnergyStd    float64 `json:"energy_std"`
-	EnergySum    float64 `json:"energy_sum"`
-	EnergyMin    float64 `json:"energy_min"`
+	Timestamp    time.Time `json:"timestamp" influx:"timestamp"`
+	MacID        string    `json:"mac_id" influx:"tag"`
+	EnergyMedian float64   `json:"energy_median" influx:"field"`
+	EnergyMean   float64   `json:"energy_mean" influx:"field"`
+	EnergyMax    float64   `json:"energy_max" influx:"field"`
+	EnergyCount  float64   `json:"energy_count" influx:"field"`
+	EnergyStd    float64   `json:"energy_std" influx:"field"`
+	EnergySum    float64   `json:"energy_sum" influx:"field"`
+	EnergyMin    float64   `json:"energy_min" influx:"field"`
 }
 
 // Print
 func PrintEnergyReading(reading DailyReading) {
 	fmt.Println("Time: " + reading.Timestamp.String())
-	fmt.Println("MAC: ", reading.MacId)
+	fmt.Println("MAC: ", reading.MacID)
 	fmt.Println("Energy: ", reading.EnergyMean)
 	fmt.Println()
 }
@@ -53,7 +52,7 @@ func PrintEnergyReading(reading DailyReading) {
 // Process string array
 func ProcessCSVEnergyReading(record []string) DailyReading {
 	// MAC ID
-	macId := record[0]
+	macID := record[0]
 
 	// Timestamp
 	timestamp, err := time.Parse(TimestampFormat, record[1])
@@ -73,7 +72,7 @@ func ProcessCSVEnergyReading(record []string) DailyReading {
 
 	energyReading := DailyReading{
 		Timestamp:    timestamp,
-		MacId:        macId,
+		MacID:        macID,
 		EnergyMedian: energyMedian,
 		EnergyMean:   energyMean,
 		EnergyMax:    energyMax,

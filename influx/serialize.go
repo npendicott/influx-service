@@ -9,6 +9,7 @@ import (
 )
 
 // Marshall an object, returns a Point. Uses influx to tell what is what, json as labels
+// TODO: struct must have 1 timestamp, at least one field
 func Marshall(structure interface{}, table string) (*client.Point, error) {
 	// Point structures
 	timestamp := time.Time{}

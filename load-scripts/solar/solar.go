@@ -7,6 +7,7 @@ import (
 	"github.com/npendicott/influx-service/csvReader"
 	"github.com/npendicott/influx-service/influx"
 	"github.com/npendicott/influx-service/schemas/solar/control"
+	_ "github.com/npendicott/influx-service/schemas/solar/pando"
 
 	_ "strconv"
 	_ "strings"
@@ -22,57 +23,53 @@ func main() {
 	// Influx
 	influxClient := influx.GetConnection()
 	defer influxClient.Close()
+	pointBatch := make([]*client.Point, 4000) // Batch
 
 	// Control
 	controlData := csvReader.GetDataArray("../../data/solar/control.csv")
 
-	// var readingBatch []*client.Point
-	readingBatch := make([]*client.Point, 4000)
 	for i, reading := range controlData {
-		// fmt.Println("Time", reading[4])
-		// fmt.Println("Reading:", i)
+		fmt.Println("Reading:", i)
 
-		controlReading := control.ProcessCSVReading(reading)
-		// controlPoint := control.CreatePoint(controlReading) // Old Create
-		controlPoint, err := influx.Marshall(controlReading, "control")
+		reading := control.ProcessCSVReading(reading)
+		fmt.Println("Time", reading.Timestamp)
+
+		point, err := influx.Marshall(reading, "control")
 		if err != nil {
 			panic(err)
 		}
-		readingBatch = append(readingBatch, controlPoint)
-		// control.Print(controlReading)
 
-		if len(readingBatch)%4000 == 0 || i == len(readingBatch)-1 {
-			fmt.Println(len(readingBatch))
-			influx.WritePointBatch(influxClient, readingBatch)
-			readingBatch = make([]*client.Point, 4000)
+		pointBatch = append(pointBatch, point)
+		if len(pointBatch)%4000 == 0 || i == len(pointBatch)-1 {
+			fmt.Println(len(pointBatch))
+			influx.WritePointBatch(influxClient, pointBatch)
+			pointBatch = make([]*client.Point, 4000)
 		}
 
-		// fmt.Println()
+		fmt.Println()
 	}
 
-	// for blockIndex := 0; blockIndex < 3; blockIndex++ {
-	// 	blockData := csvReader.GetDataArray(londonPathRoot + frequencyLevel + "block_" + strconv.Itoa(blockIndex) +".csv")
+	// // PandO
+	// pandoData := csvReader.GetDataArray("../../data/solar/pando_2k.csv")
 
-	// 	batch := 0
-	// 	var readingBatch []halfhourlyReading.HalfhourlyReading
-	// 	for i, reading := range blockData {
-	// 		fmt.Println("Block:", blockIndex)
-	// 		fmt.Println("Reading:", i)
+	// for i, reading := range pandoData {
+	// 	fmt.Println("Reading:", i)
 
-	// 		processedReading := halfhourlyReading.ProcessCSVEnergyReading(reading, HH_TIMESTAMP_FORMAT)
+	// 	reading := pando.ProcessCSVReading(reading)
+	// 	fmt.Println("Time", reading.Timestamp)
 
-	// 		readingBatch = append(readingBatch, processedReading)
-	// 		batch++
-
-	// 		// Block write logic
-	// 		if batch == 4000 || i == len(blockData) - 1 {
-	// 			halfhourlyReading.WriteEnergyReadingBatch(influxClient, readingBatch)
-	// 			batch = 0
-	// 			// TODO: Better way to clear this slice? Maybe preserve the space
-	// 			readingBatch = nil
-	// 		}
-
-	// 		fmt.Println()
+	// 	point, err := influx.Marshall(reading, "pando_2k")
+	// 	if err != nil {
+	// 		panic(err)
 	// 	}
+
+	// 	pointBatch = append(pointBatch, point)
+	// 	if len(pointBatch)%4000 == 0 || i == len(pointBatch)-1 {
+	// 		fmt.Println(len(pointBatch))
+	// 		influx.WritePointBatch(influxClient, pointBatch)
+	// 		pointBatch = make([]*client.Point, 4000)
+	// 	}
+
+	// 	fmt.Println()
 	// }
 }

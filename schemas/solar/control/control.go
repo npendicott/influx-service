@@ -10,7 +10,8 @@ import (
 
 // Influx Consts
 const (
-	TimestampFormat = "1/02 (15:4:5)" // "2006-01-02 15:04:05.0000000"
+	TimestampFormat = "1/2 (15:4:5)" // "2006-01-02 15:04:05.0000000"
+	// TimestampFormat = "2006/1/2 (15:4:5)" // "2006-01-02 15:04:05.0000000"
 
 	verbose = true
 )
@@ -37,10 +38,11 @@ func Print(reading Reading) {
 
 // ProcessCSVReading takes a string array (from the CSV output of the microcontroller) and builds a Reading.
 func ProcessCSVReading(record []string) Reading {
-	// Timestamp
+	// fmt.Println(strings.TrimSpace(record[4]))
 	timestamp, err := time.Parse(TimestampFormat, strings.TrimSpace(record[4]))
+	// fmt.Println(timestamp)
 	timestamp = timestamp.AddDate(2015, 0, 0)
-	// fmt.Println("\nAdd 1 Year:", after)
+	// fmt.Println(timestamp)
 
 	if err != nil {
 		fmt.Println(err)
