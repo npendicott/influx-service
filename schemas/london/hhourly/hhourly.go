@@ -1,4 +1,4 @@
-package halfhourlyReading
+package hhourly
 
 import (
 
@@ -30,12 +30,12 @@ type HalfhourlyReading struct {
 
 /// CSV
 // Process string array
-func ProcessCSVEnergyReading(record []string, timestampFormat string) HalfhourlyReading {
+func ProcessCSVEnergyReading(record []string) HalfhourlyReading {
 	// MAC ID
 	macId := record[0]
 
 	// Timestamp
-	timestamp, err := time.Parse(timestampFormat, record[1])
+	timestamp, err := time.Parse(TimestampFormat, record[1])
 
 	if err != nil {
 		fmt.Println(err)

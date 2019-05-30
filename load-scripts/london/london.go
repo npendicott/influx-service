@@ -6,8 +6,10 @@ import (
 	"github.com/npendicott/influx-service/csvReader"
 	"github.com/npendicott/influx-service/influx"
 	"github.com/npendicott/influx-service/schemas/london/daily"
+	"github.com/npendicott/influx-service/schemas/london/hhourly"
 
-	_ "influx-client-london/data/schemas/dailyReading"
+	// _ "influx-client-london/data/schemas/dailyReading"
+	// "influx-client-london/data/schemas/halfhourlyReading"
 
 	"fmt"
 	"log"
@@ -43,11 +45,11 @@ func main() {
 	// blockMap := make(map[string][][]string)
 	// _ = blockMap
 
-	// Daily
 	frequencyLevel := "daily_dataset/"
-
 	readingBatch := make([]*client.Point, 4000)
-	for blockIndex := 0; blockIndex < 3; blockIndex++ { // lol maybe they do start at 1 sometimes
+
+	// Daily
+	for blockIndex := 0; blockIndex < 3; blockIndex++ {
 		blockData := csvReader.GetDataArray(londonPathRoot + frequencyLevel + "block_" + strconv.Itoa(blockIndex) + ".csv")
 
 		// batch := 0
@@ -85,8 +87,50 @@ func main() {
 		}
 	}
 
+	frequencyLevel = "halfhourly_dataset/"
+	readingBatch = make([]*client.Point, 4000) // Reset
+
+	// HHourly
+	for blockIndex := 0; blockIndex < 3; blockIndex++ {
+		blockData := csvReader.GetDataArray(londonPathRoot + frequencyLevel + "block_" + strconv.Itoa(blockIndex) + ".csv")
+
+		// batch := 0
+		for i, reading := range blockData {
+			fmt.Println("Block:", blockIndex)
+			fmt.Println("Reading:", i)
+
+			reading := hhourly.ProcessCSVEnergyReading(reading)
+			point, err := influx.Marshall(reading, "hhourly")
+
+			if err != nil {
+				panic(err)
+			}
+			readingBatch = append(readingBatch, point)
+			// control.Print(controlReading)
+
+			if len(readingBatch)%4000 == 0 || i == len(readingBatch)-1 {
+				fmt.Println(len(readingBatch))
+				influx.WritePointBatch(influxClient, readingBatch)
+				readingBatch = make([]*client.Point, 4000)
+			}
+
+			// readingBatch = append(readingBatch, processedReading)
+			// batch++
+
+			// // Block write logic
+			// if batch == 4000 || i == len(blockData)-1 {
+			// 	dailyReading.WriteEnergyReadingBatch(influxClient, readingBatch)
+			// 	batch = 0
+			// 	// TODO: Better way to clear this slice? Maybe preserve the space
+			// 	readingBatch = nil
+			// }
+
+			fmt.Println()
+		}
+	}
+
 	// // HalfHour
-	// frequencyLevel := "halfhourly_dataset/"
+	// frequencyLevel = "halfhourly_dataset/"
 
 	// for blockIndex := 0; blockIndex < 3; blockIndex++ {
 	// 	blockData := csvReader.GetDataArray(londonPathRoot + frequencyLevel + "block_" + strconv.Itoa(blockIndex) + ".csv")
