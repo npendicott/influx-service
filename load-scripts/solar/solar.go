@@ -7,6 +7,7 @@ import (
 	"github.com/npendicott/influx-service/csvReader"
 	"github.com/npendicott/influx-service/influx"
 	"github.com/npendicott/influx-service/schemas/solar/control"
+	"github.com/npendicott/influx-service/schemas/solar/pando"
 	_ "github.com/npendicott/influx-service/schemas/solar/pando"
 
 	_ "strconv"
@@ -49,27 +50,27 @@ func main() {
 		fmt.Println()
 	}
 
-	// // PandO
-	// pandoData := csvReader.GetDataArray("../../data/solar/pando_2k.csv")
+	// PandO
+	pandoData := csvReader.GetDataArray("../../data/solar/pando_2k.csv")
 
-	// for i, reading := range pandoData {
-	// 	fmt.Println("Reading:", i)
+	for i, reading := range pandoData {
+		fmt.Println("Reading:", i)
 
-	// 	reading := pando.ProcessCSVReading(reading)
-	// 	fmt.Println("Time", reading.Timestamp)
+		reading := pando.ProcessCSVReading(reading)
+		fmt.Println("Time", reading.Timestamp)
 
-	// 	point, err := influx.Marshall(reading, "pando_2k")
-	// 	if err != nil {
-	// 		panic(err)
-	// 	}
+		point, err := influx.Marshall(reading, "pando_2k")
+		if err != nil {
+			panic(err)
+		}
 
-	// 	pointBatch = append(pointBatch, point)
-	// 	if len(pointBatch)%4000 == 0 || i == len(pointBatch)-1 {
-	// 		fmt.Println(len(pointBatch))
-	// 		influx.WritePointBatch(influxClient, pointBatch)
-	// 		pointBatch = make([]*client.Point, 4000)
-	// 	}
+		pointBatch = append(pointBatch, point)
+		if len(pointBatch)%4000 == 0 || i == len(pointBatch)-1 {
+			fmt.Println(len(pointBatch))
+			influx.WritePointBatch(influxClient, pointBatch)
+			pointBatch = make([]*client.Point, 4000)
+		}
 
-	// 	fmt.Println()
-	// }
+		fmt.Println()
+	}
 }

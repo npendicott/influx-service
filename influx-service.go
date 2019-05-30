@@ -76,48 +76,12 @@ func root(resWrt http.ResponseWriter, req *http.Request) {
 
 }
 
-func mac_readings(resWrt http.ResponseWriter, req *http.Request) {
-	title := req.URL.Path[len("/mac_readings/"):] // TODO: Is this really the only way to do this?
-
-	fmt.Println(req.URL.Path[2:])
-	// Headers
-	macID := req.Header.Get("mac-id")
-	fmt.Println(macID)
-
-	// Get date range
-	start, errOut := getRequiredParam(req, "start")
-	if errOut != nil {
-		resWrt.Write(errOut)
-		return
-	}
-	fmt.Println(start)
-
-	end, errOut := getRequiredParam(req, "end")
-	if errOut != nil {
-		resWrt.Write(errOut)
-		return
-	}
-	fmt.Println(end)
-
-	// Get response
-	resp := influx.QueryDateRangeWithMAC(influxClient, title, macID, start, end)
-
-	// Writing Response Body
-	out, err := json.MarshalIndent(resp, "", "     ")
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	// Header
-	resWrt = addCrossSiteOriginHeader(resWrt)
-
-	resWrt.Write(out)
-	return
-}
-
 func readings(resWrt http.ResponseWriter, req *http.Request) {
 	series := req.URL.Path[len("/readings/"):] // TODO: Is this really the only way to do this?
 
+	// Headers
+	macID := req.Header.Get("mac-id")
+
 	// Get date range
 	start, errOut := getRequiredParam(req, "start")
 	if errOut != nil {
@@ -133,8 +97,16 @@ func readings(resWrt http.ResponseWriter, req *http.Request) {
 	}
 	fmt.Println(end)
 
+	// Headers
+	var resp *client.Response
+	if macID == "" {
+		resp = influx.QueryDateRange(influxClient, series, start, end)
+	} else {
+		fmt.Println(macID)
+		resp = influx.QueryDateRangeWithMAC(influxClient, series, macID, start, end)
+	}
+
 	// Get response
-	resp := influx.QueryDateRange(influxClient, series, start, end)
 
 	// Writing Response Body
 	out, err := json.MarshalIndent(resp, "", "     ")
@@ -148,77 +120,6 @@ func readings(resWrt http.ResponseWriter, req *http.Request) {
 	resWrt.Write(out)
 	return
 }
-
-// Specific
-
-// func readingsHHourly(resWrt http.ResponseWriter, req *http.Request) {
-// 	// Parse Request
-// 	macID := req.Header.Get("mac-id")
-// 	fmt.Println(macID)
-
-// 	startString, out := unpackTime(req, "start")
-// 	if out != nil {
-// 		resWrt.Write(out)
-// 		return
-// 	}
-// 	//fmt.Println(startString)
-
-// 	endString, out := unpackTime(req, "end")
-// 	if out != nil {
-// 		resWrt.Write(out)
-// 		return
-// 	}
-
-// 	// Call Influx
-// 	resp := influx.QueryDateRange(dailyReading.TABLE_NAME, macID, startString, endString)
-
-// 	// Write Response
-// 	resWrt = addCrossSiteOriginHeader(resWrt)
-// 	out, err := json.MarshalIndent(resp, "", "     ")
-// 	if err != nil {
-// 		log.Fatal(err)
-// 	}
-
-// 	resWrt.Write(out)
-// 	return
-// }
-
-// func readingsDaily(resWrt http.ResponseWriter, req *http.Request) {
-// 	fmt.Println(req.URL.Path[2:])
-// 	// Headers
-// 	macID := req.Header.Get("mac-id")
-// 	fmt.Println(macID)
-
-// 	// Get date range
-// 	start, errOut := getRequiredParam(req, "start")
-// 	if errOut != nil {
-// 		resWrt.Write(errOut)
-// 		return
-// 	}
-// 	fmt.Println(start)
-
-// 	end, errOut := getRequiredParam(req, "end")
-// 	if errOut != nil {
-// 		resWrt.Write(errOut)
-// 		return
-// 	}
-// 	fmt.Println(end)
-
-// 	// Get response
-// 	resp := influx.QueryDateRange(influxClient, "daily", macID, start, end)
-
-// 	// Writing Response Body
-// 	out, err := json.MarshalIndent(resp, "", "     ")
-// 	if err != nil {
-// 		log.Fatal(err)
-// 	}
-
-// 	// Header
-// 	resWrt = addCrossSiteOriginHeader(resWrt)
-
-// 	resWrt.Write(out)
-// 	return
-// }
 
 // Server
 func main() {
@@ -238,7 +139,7 @@ func main() {
 	// Routes
 	http.HandleFunc("/", root)
 	http.HandleFunc("/readings/", readings)
-	http.HandleFunc("/mac_readings/", mac_readings)
+	// http.HandleFunc("/mac_readings/", mac_readings)
 	// http.HandleFunc("/readings/daily", readingsDaily)
 	// http.HandleFunc("/readings/hhourly", readingsHHourly)
 
